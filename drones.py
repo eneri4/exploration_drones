@@ -22,8 +22,11 @@ class drone:
         self.id = id
         self.position = position
 
-        self.map = np.zeros(MAPSIZE)
-        self.map[position[0], position[1]] = DRONE
+        self.local_map = np.zeros(MAPSIZE) # Updated when communication over (tracks its own move only)
+        self.local_map[position[0], position[1]] = DRONE 
+
+        self.global_map = np.zeros(MAPSIZE) # Updates while communication taking place 
+        self.global_map[position[0], position[1]] = DRONE
         
         self.num_recieves = 0
         self.num_transmits = 0
@@ -36,8 +39,11 @@ class drone:
         move to an explored position if available, otherwise it stays in place. It updates 
         its map accordingly.
         '''
+        # Remove old drone positions
+        self.local_map[self.local_map >= DRONE] = EXPLORED
+
         # Simple random move
-        map_shape = self.map.shape
+        map_shape = self.local_map.shape
         move_finished = False
         # check random moves until one of them is unexplored and within bounds
         count = 0
@@ -48,24 +54,24 @@ class drone:
             movey = np.random.choice([-1, 0, 1])
             if 0 <= self.position[0] + movex < map_shape[0] and 0 <= self.position[1] + movey < map_shape[1]:
                 if count < 6: # try to find random unexplored move first within 1 block distance
-                    if self.map[self.position[0] + movex, self.position[1] + movey] == UNEXPLORED:
-                        self.map[self.position[0], self.position[1]] = EXPLORED
+                    if self.local_map[self.position[0] + movex, self.position[1] + movey] == UNEXPLORED:
+                        self.local_map[self.position[0], self.position[1]] = EXPLORED
                         self.position[0] += movex
                         self.position[1] += movey
-                        self.map[self.position[0], self.position[1]] = DRONE
+                        self.local_map[self.position[0], self.position[1]] = DRONE
                         move_finished = True
-                    elif self.map[self.position[0] + movex, self.position[1] + movey] == EXPLORED:
+                    elif self.local_map[self.position[0] + movex, self.position[1] + movey] == EXPLORED:
                         backup = (movex, movey)
                 else:
                     if backup is not None:    # if no unexplored move found, move to explored if possible
                         movex, movey = backup
-                        self.map[self.position[0], self.position[1]] = EXPLORED
+                        self.local_map[self.position[0], self.position[1]] = EXPLORED
                         self.position[0] += movex
                         self.position[1] += movey
-                        self.map[self.position[0], self.position[1]] = DRONE
+                        self.local_map[self.position[0], self.position[1]] = DRONE
                         move_finished = True
                     else:
-                        self.map[self.position[0], self.position[1]] = DRONE
+                        self.local_map[self.position[0], self.position[1]] = DRONE
                         move_finished = True  # no move possible, stay in place  
             
     def transmit(self, drones):
@@ -80,7 +86,7 @@ class drone:
             drones = [drones]
         for drone in drones:
             if drone.id != self.id:
-                drone.receive(self.map)
+                drone.receive(self.local_map)
             self.num_transmits += 1
 
     def receive(self, other):
@@ -93,13 +99,12 @@ class drone:
         Args:
             other: 2D numpy array representing the received map from another drone.        
         '''
-        #remove old drone positions
-        self.map[self.map >= DRONE] = EXPLORED
 
         self.num_recieves += 1
         
-        A = self.map
+        A = self.local_map
         B = other
+
         # merge received map with own map
         merged = np.zeros_like(A)
 
@@ -111,14 +116,58 @@ class drone:
         merged[any_drone & (~both_drone)] = 2
         merged[any_exp & (~any_drone)] = 1
 
-        self.map = merged
+        self.global_map = merged
+
+    def finalize_communication(self):
+        """Update local map to global map for the next round."""
+        self.local_map = self.global_map.copy()
     
-    
-def visualize_map(drone_map):
-    '''
-    Visualize the drone's map using matplotlib.
-    Args:
-        drone_map: 2D numpy array representing the drone's map.
-    '''
-    plt.imshow(drone_map, cmap='gray_r')
-    plt.show()  
+    @staticmethod
+    def generate_bibd_7_3_1():
+        """Return the 7 blocks of the (7,3,1) BIBD."""
+        base = {0, 1, 3}
+        blocks = []
+        for i in range(7):
+            block = sorted({(x + i) % 7 for x in base})
+            blocks.append(block)
+        return blocks
+
+    @staticmethod
+    def bibd_communicate(drones, block):
+        """Perform pairwise communication only among drones in this BIBD block."""
+        active = [drones[i] for i in block]
+        for d in active:
+            for other in active:
+                if other.id != d.id:
+                    d.transmit(other)
+
+    @staticmethod
+    def full_communication(drones):
+        """All drones on at the same time. Each communicates its local map to every other drone."""
+        for d in drones:
+            for other in drones:
+                if d.id != other.id:
+                    d.transmit(other)
+        
+    @staticmethod
+    def visualize_map(drones, visited, round_number):
+        """Displays the global map at a given round."""
+        size = len(visited)  # assume square grid
+
+        # Create a copy to show current occupancy
+        display_grid = visited.copy()
+
+        # Mark drone positions with a 2
+        for d in drones:
+            x, y = d.position
+            display_grid[y][x] = 2
+
+        # Visualize global map at each round
+        print(f"\nRound {round_number} grid:")
+        print(display_grid)
+
+        plt.clf()
+        plt.imshow(display_grid, cmap="gray_r", vmin=0, vmax=2)
+        plt.title(f"Round {round_number}")
+        plt.colorbar()
+        plt.pause(0.1)
