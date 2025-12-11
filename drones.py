@@ -132,42 +132,39 @@ class drone:
             blocks.append(block)
         return blocks
 
-    @staticmethod
-    def bibd_communicate(drones, block):
-        """Perform pairwise communication only among drones in this BIBD block."""
-        active = [drones[i] for i in block]
-        for d in active:
-            for other in active:
-                if other.id != d.id:
-                    d.transmit(other)
 
-    @staticmethod
-    def full_communication(drones):
-        """All drones on at the same time. Each communicates its local map to every other drone."""
-        for d in drones:
-            for other in drones:
-                if d.id != other.id:
-                    d.transmit(other)
         
     @staticmethod
-    def visualize_map(drones, visited, round_number):
-        """Displays the global map at a given round."""
-        size = len(visited)  # assume square grid
+    def visualize_map(drones, visited, round_number, transmitter_drone = None, reciver_drone = None):
+        """Displays the global map using RGB colors."""
+        size = len(visited)
 
-        # Create a copy to show current occupancy
-        display_grid = visited.copy()
+        # Make an RGB image (height × width × 3)
+        rgb = np.zeros((size, size, 3), dtype=float)
 
-        # Mark drone positions with a 2
+        # Color definitions (R, G, B) in 0–1 range
+        COLOR_UNEXPLORED = np.array([1.0, 1.0, 1.0])   # white
+        COLOR_EXPLORED   = np.array([0.6, 0.6, 0.6])   # light gray
+        COLOR_DRONE      = np.array([0.0, 0.3, 1.0])   # blue
+        COLOR_RECEIVER   = np.array([0.0, 1.0, 0.0])   # green
+        COLOR_TRANSMITTER= np.array([1.0, 0.0, 0.0])   # red
+
+        # Fill unexplored / explored layers
+        rgb[visited == 0] = COLOR_UNEXPLORED
+        rgb[visited == 1] = COLOR_EXPLORED
+        # Mark drone positions in RGB array
         for d in drones:
             x, y = d.position
-            display_grid[y][x] = 2
-
-        # Visualize global map at each round
-        print(f"\nRound {round_number} grid:")
-        print(display_grid)
-
+            rgb[y, x] = COLOR_DRONE
+        # Highlight transmitter and receiver drones if provided
+        if transmitter_drone is not None:   
+            x, y = transmitter_drone.position
+            rgb[y, x] = COLOR_TRANSMITTER   
+        if reciver_drone is not None:
+            x, y = reciver_drone.position
+            rgb[y, x] = COLOR_RECEIVER
+        # Display
         plt.clf()
-        plt.imshow(display_grid, cmap="gray_r", vmin=0, vmax=2)
+        plt.imshow(rgb)
         plt.title(f"Round {round_number}")
-        plt.colorbar()
         plt.pause(0.1)

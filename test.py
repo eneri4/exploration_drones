@@ -3,20 +3,34 @@ from drones import drone
 import matplotlib.pyplot as plt
 import time
 
-def simulate(drones, T, mode="full", bibd_blocks=None):
+def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
     plt.ion()
 
     size = 10
     visited = np.zeros((size, size), dtype=int)
-
-    for t in range(T):
-
+    t = 0
+    while visited.min() == 0 and t < T:
+        t = t + 1
         # Communication phase
         if mode == "full":
-            drone.full_communication(drones)
+            """All drones on at the same time. Each communicates its local map to every other drone."""
+            for d in drones:
+                for other in drones:
+                    if d.id != other.id:
+                        d.transmit(other)
+                        if visualize:
+                            drone.visualize_map(drones, visited, t, transmitter_drone=d, reciver_drone=other)
         else:
             block = bibd_blocks[t % len(bibd_blocks)]
-            drone.bibd_communicate(drones, block)
+            """Perform pairwise communication only among drones in this BIBD block."""
+            active = [drones[i] for i in block]
+            for d in active:
+                for other in active:
+                    if other.id != d.id:
+                        d.transmit(other)
+                        if visualize:
+                            drone.visualize_map(drones, visited, t, transmitter_drone=d, reciver_drone=other)
+
 
         # Update local maps to global
         for d in drones:
@@ -35,8 +49,6 @@ def simulate(drones, T, mode="full", bibd_blocks=None):
         for d in drones:
             d.move()
 
-        # Visualize
-        drone.visualize_map(drones, visited, t)
 
     plt.ioff()
     plt.show()
@@ -65,21 +77,31 @@ def main():
         bibd_blocks = None
 
     # Initialize drones location randomly
-    drones = []
-    for i in range(N):
-        x = np.random.randint(0, 10)
-        y = np.random.randint(0, 10)
-        drones.append(drone(i, [x, y]))
+    num_simulations = 100
+    num_transmits = 0
+    num_receives = 0
+    for i in range(num_simulations):
+        drones = []
+        for i in range(N):
+            x = np.random.randint(0, 10)
+            y = np.random.randint(0, 10)
+            drones.append(drone(i, [x, y]))
 
-    # Run simulation
-    simulate(drones, T=20, mode=mode, bibd_blocks=bibd_blocks)
+        # Run simulation
+        simulate(drones, T=10000, mode=mode, bibd_blocks=bibd_blocks, visualize=False)
 
-    # Print results
-    print("\n--- FINAL COMMUNICATION COUNTS ---")
-    for d in drones:
-        print(f"Drone {d.id}: received={d.num_recieves}, transmitted={d.num_transmits}")
-
-    
+        # Print results
+        print("\n--- FINAL COMMUNICATION COUNTS ---")
+        transmit_avg = 0
+        receive_avg = 0
+        for d in drones:
+            print(f"Drone {d.id}: received={d.num_recieves}, transmitted={d.num_transmits}")
+            transmit_avg += d.num_transmits
+            receive_avg += d.num_recieves
+        num_transmits += transmit_avg / N
+        num_receives += receive_avg / N
+    print(f"\nAverage transmits per drone over {num_simulations} simulations: {num_transmits / num_simulations}")
+    print(f"Average receives per drone over {num_simulations} simulations: {num_receives / num_simulations}")
 
 
 if __name__ == "__main__":
