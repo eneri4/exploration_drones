@@ -5,7 +5,7 @@ UNEXPLORED = 0 # value in the map that indicates box is unexplored
 EXPLORED = 1   # value in the map that indicates box is explored
 DRONE = 2     # value in the map that indicates box is occupied by a drone
 MAPSIZE = (10, 10)   # size of the map
-
+img = 0  
 class drone:
     """A simple drone class that can move, transmit and receive maps."""
     def __init__(self, id, position):
@@ -15,7 +15,7 @@ class drone:
             Parameters:
                 id: unique identifier for the drone
                 position: starting position of the drone as [x, y]
-                map: 2D numpy array representing the drone's local map
+          map: 2D numpy array representing the drone's local map
                 num_receives: number of times the drone has received a map
                 num_transmits: number of times the drone has transmitted its map
         """
@@ -30,7 +30,14 @@ class drone:
         
         self.num_recieves = 0
         self.num_transmits = 0
-
+    # def move(self):
+    #     self.local_map[self.local_map >= DRONE] = EXPLORED
+    #     dist = 1
+    #     for i in [-dist, 0, dist]:
+    #         for j in [-dist, 0, dist]:
+    #             if 0 <= self.position[0] + i < MAPSIZE[0] and 0 <= self.position[1] + j < MAPSIZE[1]:
+    #                 if self.local_map[self.position[0] + i, self.position[1] + j] == UNEXPLORED:
+                        
     def move(self):
         '''
         Move the drone to a new position on the map that is unexplored if possible.
@@ -73,7 +80,7 @@ class drone:
                     else:
                         self.local_map[self.position[0], self.position[1]] = DRONE
                         move_finished = True  # no move possible, stay in place  
-            
+                  
     def transmit(self, drones):
         '''
         Transmit the drone's map to other drones.
@@ -133,7 +140,7 @@ class drone:
         return blocks
 
 
-        
+  
     @staticmethod
     def visualize_map(drones, visited, round_number, transmitter_drone = None, reciver_drone = None):
         """Displays the global map using RGB colors."""
@@ -164,7 +171,10 @@ class drone:
             x, y = reciver_drone.position
             rgb[y, x] = COLOR_RECEIVER
         # Display
+        global img
         plt.clf()
         plt.imshow(rgb)
         plt.title(f"Round {round_number}")
+        plt.savefig(f"C:/Users/amahesh/Downloads/drones_BIBD/round_{img}.png")
         plt.pause(0.1)
+        img += 1

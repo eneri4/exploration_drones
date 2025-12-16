@@ -2,11 +2,12 @@ import numpy as np
 from drones import drone
 import matplotlib.pyplot as plt
 import time
+MAPSIZE = (10, 10)
 
 def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
     plt.ion()
 
-    size = 10
+    size = MAPSIZE[0]
     visited = np.zeros((size, size), dtype=int)
     t = 0
     while visited.min() == 0 and t < T:
@@ -30,7 +31,6 @@ def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
                         d.transmit(other)
                         if visualize:
                             drone.visualize_map(drones, visited, t, transmitter_drone=d, reciver_drone=other)
-
 
         # Update local maps to global
         for d in drones:
@@ -71,6 +71,7 @@ def main():
     elif choice == "2":
         mode = "BIBD"
         bibd_blocks = drone.generate_bibd_7_3_1()
+        print(bibd_blocks)
     else:
         print("Invalid input. Defaulting to full communication.")
         mode = "full"
@@ -80,15 +81,16 @@ def main():
     num_simulations = 100
     num_transmits = 0
     num_receives = 0
+
     for i in range(num_simulations):
         drones = []
         for i in range(N):
-            x = np.random.randint(0, 10)
-            y = np.random.randint(0, 10)
+            x = np.random.randint(0, MAPSIZE[1])
+            y = np.random.randint(0, MAPSIZE[0])
             drones.append(drone(i, [x, y]))
 
         # Run simulation
-        simulate(drones, T=10000, mode=mode, bibd_blocks=bibd_blocks, visualize=False)
+        simulate(drones, T=10000, mode=mode, bibd_blocks=bibd_blocks, visualize=True)
 
         # Print results
         print("\n--- FINAL COMMUNICATION COUNTS ---")
