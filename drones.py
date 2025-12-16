@@ -175,6 +175,5 @@ class drone:
         plt.clf()
         plt.imshow(rgb)
         plt.title(f"Round {round_number}")
-        plt.savefig(f"C:/Users/amahesh/Downloads/drones_BIBD/round_{img}.png")
         plt.pause(0.1)
         img += 1
