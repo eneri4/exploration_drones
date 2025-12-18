@@ -5,6 +5,16 @@ import time
 MAPSIZE = (10, 10)
 
 def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
+    '''
+    Simulate the drone exploration algorithm with the selected method and displays a
+    visualization of the process.
+    
+    :param drones: List of drone objects to simulate with the selected method
+    :param T: Integer denoting The maximum number of rounds to run the simulation for
+    :param mode: string representing the communication mode to use
+    :param bibd_blocks: the BIBD blocks to use for communication in BIBD mode
+    :param visualize: True if you want to visualize the simulation, False otherwise
+    '''
     plt.ion()
 
     size = MAPSIZE[0]
@@ -13,6 +23,7 @@ def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
     while visited.min() == 0 and t < T:
         t = t + 1
         # Communication phase
+        # Full communication mode
         if mode == "full":
             """All drones on at the same time. Each communicates its local map to every other drone."""
             for d in drones:
@@ -21,7 +32,43 @@ def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
                         d.transmit(other)
                         if visualize:
                             drone.visualize_map(drones, visited, t, transmitter_drone=d, reciver_drone=other)
-        else:
+
+            for d in drones:
+                d.finalize_communication()
+            
+            # Mark current location as visited before they move
+            for d in drones:
+                x, y = d.position
+            visited[y][x] = 1
+
+            for d in drones:
+                d.move()
+        # BIBD mode
+        elif mode == "BIBD":
+            for i in range(len(bibd_blocks)):   
+                block = bibd_blocks[i % len(bibd_blocks)]
+                """Perform pairwise communication only among drones in this BIBD block."""
+                active = [drones[i] for i in block]
+                for d in active:
+                    for other in active:
+                        if other.id != d.id:
+                            d.transmit(other)
+                            if visualize:
+                                drone.visualize_map(drones, visited, t, transmitter_drone=d, reciver_drone=other)
+
+            # Update local maps to global
+            for d in drones:
+                d.finalize_communication()
+            
+            # Mark current location as visited before they move
+            for d in drones:
+                x, y = d.position
+                visited[y][x] = 1
+
+            for d in drones:
+                d.move()
+        # Fast switching mode
+        elif mode == "BIBD-Fast":   
             block = bibd_blocks[t % len(bibd_blocks)]
             """Perform pairwise communication only among drones in this BIBD block."""
             active = [drones[i] for i in block]
@@ -32,22 +79,23 @@ def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
                         if visualize:
                             drone.visualize_map(drones, visited, t, transmitter_drone=d, reciver_drone=other)
 
-        # Update local maps to global
-        for d in drones:
-            d.finalize_communication()
+            # Update local maps to global
+            for d in active:
+                d.finalize_communication()
+            
+            # Mark current location as visited before they move
+            for d in active:
+                x, y = d.position
+                visited[y][x] = 1
 
-        # Mark current location as visited before they move
-        for d in drones:
-            x, y = d.position
-            visited[y][x] = 1
-
+            for d in active:
+                d.move()
         # Print number of unexplored cells
         unexplored_count = np.sum(visited == 0)
         print(f"\nUnexplored cells remaining: {unexplored_count}")
 
         # Move
-        for d in drones:
-            d.move()
+
 
 
     plt.ioff()
@@ -55,16 +103,20 @@ def simulate(drones, T, mode="full", bibd_blocks=None, visualize=True):
 
 
 def main():
+    '''
+    Generate a list of drones with random initial positions and simulate their exploration depending on the user's
+    chosen communication mode
+    '''
     # Choose number of drones for simulation
     N = 7
-
     # Choose which communication mode to use
     print("Choose communication mode:")
     print("1. full (all drones communicate each round)")
     print("2. BIBD (7,3,1) block design communication")
+    print("3. BIBD-Fast (7,3,1) block design communication with fast switching")
 
     choice = input("Enter 1 or 2: ").strip()
-
+    # input validation
     if choice == "1":
         mode = "full"
         bibd_blocks = None
@@ -72,16 +124,19 @@ def main():
         mode = "BIBD"
         bibd_blocks = drone.generate_bibd_7_3_1()
         print(bibd_blocks)
+    elif choice == "3":
+        mode = "BIBD-Fast"
+        bibd_blocks = drone.generate_bibd_7_3_1()
     else:
         print("Invalid input. Defaulting to full communication.")
         mode = "full"
         bibd_blocks = None
 
     # Initialize drones location randomly
-    num_simulations = 100
+    num_simulations = 20
     num_transmits = 0
     num_receives = 0
-
+# run simulation multiple times to get average results
     for i in range(num_simulations):
         drones = []
         for i in range(N):
@@ -90,7 +145,7 @@ def main():
             drones.append(drone(i, [x, y]))
 
         # Run simulation
-        simulate(drones, T=10000, mode=mode, bibd_blocks=bibd_blocks, visualize=True)
+        simulate(drones, T=10000, mode=mode, bibd_blocks=bibd_blocks, visualize=False)
 
         # Print results
         print("\n--- FINAL COMMUNICATION COUNTS ---")

@@ -30,14 +30,39 @@ class drone:
         
         self.num_recieves = 0
         self.num_transmits = 0
-    # def move(self):
-    #     self.local_map[self.local_map >= DRONE] = EXPLORED
-    #     dist = 1
-    #     for i in [-dist, 0, dist]:
-    #         for j in [-dist, 0, dist]:
-    #             if 0 <= self.position[0] + i < MAPSIZE[0] and 0 <= self.position[1] + j < MAPSIZE[1]:
-    #                 if self.local_map[self.position[0] + i, self.position[1] + j] == UNEXPLORED:
-                        
+
+    def move_bfs(self):
+        '''
+        Move the drone to a new position on the map that is unexplored if possible.
+        The drone updates its map to mark the previous position as explored. uses bredth first search to find the next unexplored position.
+         
+        '''
+        dist = 1
+        positions_checked = [(0, 0)]
+        found = False
+        while not found and dist <= 5:
+            positions = [x - dist for x in range(2*dist + 1)]
+            for i in positions:
+                for j in positions:
+                    if not (i, j) in positions_checked and 0 <= self.position[0] + i < MAPSIZE[0] and 0 <= self.position[1] + j < MAPSIZE[1]:
+                        positions_checked.append((i, j))
+                        if self.local_map[int(self.position[0] + i), int(self.position[1] + j)] == UNEXPLORED:
+                            position = [i,j]
+                            if abs(i) > 1:
+                                position[0] = int(position[0]/abs(position[0]))
+                            if abs(j) > 1:
+                                position[1] = int(position[1]/abs(position[1]))
+                            if not self.local_map[int(self.position[0] + position[0]), int(self.position[1] + position[1])] == DRONE:
+                                found = True
+                                self.local_map[int(self.position[0]), int(self.position[1])] = EXPLORED
+                                self.local_map[int(self.position[0] + position[0]), int(self.position[1] + position[1])] = DRONE
+                                self.position[0] += position[0]
+                                self.position[1] += position[1]
+                                print(position)
+
+                                #print(int(self.position[0] + position[0]), int(self.position[1] + position[1]), position)
+                                break
+            dist = dist + 1
     def move(self):
         '''
         Move the drone to a new position on the map that is unexplored if possible.
@@ -45,6 +70,7 @@ class drone:
         If the drone is unable to find a new unexplored position after 6 attempts, it will
         move to an explored position if available, otherwise it stays in place. It updates 
         its map accordingly.
+        
         '''
         # Remove old drone positions
         self.local_map[self.local_map >= DRONE] = EXPLORED
@@ -57,10 +83,11 @@ class drone:
         backup = None
         while not move_finished:
             count += 1
-            movex = np.random.choice([-1, 0, 1])
-            movey = np.random.choice([-1, 0, 1])
+            moves = [(-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+            movex, movey = moves[np.random.randint(0, len(moves))]
+            moves.remove((movex, movey))
             if 0 <= self.position[0] + movex < map_shape[0] and 0 <= self.position[1] + movey < map_shape[1]:
-                if count < 6: # try to find random unexplored move first within 1 block distance
+                if count <= 8: # try to find random unexplored move first within 1 block distance
                     if self.local_map[self.position[0] + movex, self.position[1] + movey] == UNEXPLORED:
                         self.local_map[self.position[0], self.position[1]] = EXPLORED
                         self.position[0] += movex
@@ -126,12 +153,15 @@ class drone:
         self.global_map = merged
 
     def finalize_communication(self):
-        """Update local map to global map for the next round."""
+        """Finalize communication by updating the local map with the global map."""
         self.local_map = self.global_map.copy()
     
     @staticmethod
     def generate_bibd_7_3_1():
-        """Return the 7 blocks of the (7,3,1) BIBD."""
+        """Generate a Balanced Incomplete Block Design (BIBD) with parameters (7, 3, 1).
+        Returns:
+            blocks: list of blocks, where each block is a list of integers representing the positions of the drone positions in the block.
+        """
         base = {0, 1, 3}
         blocks = []
         for i in range(7):
@@ -143,7 +173,16 @@ class drone:
   
     @staticmethod
     def visualize_map(drones, visited, round_number, transmitter_drone = None, reciver_drone = None):
-        """Displays the global map using RGB colors."""
+        """
+        Visualize the current state of the map for a given round number.
+        Args:
+            drones: list of drone objects
+            visited: 2D numpy array representing the global map
+            round_number: current round number
+            transmitter_drone: optional, the drone that transmitted its map
+            reciver_drone: optional, the drone that received the map
+        """
+        # Get size of the map
         size = len(visited)
 
         # Make an RGB image (height × width × 3)

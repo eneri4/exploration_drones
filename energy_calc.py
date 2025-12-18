@@ -29,7 +29,13 @@ def calc_BIBD_energy(v, k, lamb=1):
     return E
 
 def calc_non_BIBD_energy(v, k, lamb=1):
-    '''Calculates the total energy cost for non-BIBD communication method'''
+    '''
+    Calculates the total energy cost for non-BIBD communication method
+
+    :param v: total number of drones
+    :param k: number of drones in a group
+    :param lamb: times of communication between each pair (assuming always = 1)
+    '''
     t = math.comb(v, 2)*2 # times of communication in total (=(v choose 2)*2)
     E = (communicate + (v-2)*idle)*t    # TODO: implement lamb as a variable
     return E
